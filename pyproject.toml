@@ -1,0 +1,18 @@
+[build-system]
+requires  = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "user_registry"
+version = "0.1.0"
+description = "A properly packaged Python application to create and manage users."
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+user-registry = "user_registry.cli:main"
