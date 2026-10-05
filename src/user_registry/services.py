@@ -1,9 +1,9 @@
 from typing import List
 from .models import User
-from .repository import UserRepositry
+from .repository import UserRepository
 
 class UserService:
-    def __init__(self, repositry: UserRepositry):
+    def __init__(self, repositry: UserRepository)->None:
 
         self._repositry = repositry
 

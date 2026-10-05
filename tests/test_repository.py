@@ -1,9 +1,9 @@
 import pytest
 from user_registry.models import User
-from user_registry.repository import UserRepositry
+from user_registry.repository import UserRepository
 
 def test_repository_add_and_list():
-    repo = UserRepositry()
+    repo = UserRepository()
     user = User(name="Alice", email="alice@example.com")
 
     repo.add(user)
@@ -15,7 +15,7 @@ def test_repository_add_and_list():
 
 def test_repository_protects_internal_list():
 
-    repo = UserRepositry()
+    repo = UserRepository()
     user1 = User(name="Alice", email= "alice@example.com")
     repo.add(user1)
 

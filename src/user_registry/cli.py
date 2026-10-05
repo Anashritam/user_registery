@@ -1,6 +1,6 @@
 import argparse
 import sys
-from .repository import UserRepositry
+from .repository import UserRepository
 from .services import UserService
 
 def main():
@@ -14,7 +14,7 @@ def main():
 
     args = parser.parse_args()
 
-    repo = UserRepositry()
+    repo = UserRepository()
     service = UserService(repo)
 
     if args.command == "add":

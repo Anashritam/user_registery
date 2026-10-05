@@ -1,11 +1,11 @@
 import pytest
 from user_registry.models import User
-from user_registry.repository import UserRepositry
+from user_registry.repository import UserRepository
 from user_registry.services import UserService
 
 @pytest.fixture
 def service():
-    return UserService(UserRepositry())
+    return UserService(UserRepository())
 
 def test_add_user_valid_and_normalized(service):
     user = service.add_user("Alice", "ALICE@EXAMPLE.COM")
