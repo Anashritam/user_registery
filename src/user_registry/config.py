@@ -8,7 +8,4 @@ class Settings:
     data_file: Path = Path.home()/".user_registry"/"users.json"
 
 def get_default_settings() -> Settings:
-
-    settings = Settings()
-    settings.data_file.parent.mkdir(parents=True, exist_ok= True)
-    return settings
+    return Settings()

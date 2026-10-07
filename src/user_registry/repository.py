@@ -10,6 +10,7 @@ class UserRepository:
     """JSON file based storage for User Objects."""
     def __init__(self, data_file: Path):
         self._file_path=data_file
+        self._file_path.parent.mkdir(parents=True, exist_ok= True)
         self._users:List[User]= self._load_users()
 
     def _load_users(self)-> List[User]:

@@ -17,7 +17,7 @@ class UserService:
         normalized_email = email.strip().lower()
 
         if not normalized_name:
-            logger.warning(f"Falied to create user: Empty name provided.")
+            logger.warning("Failed to create user: Empty name provided.")
             raise ValueError("Name cannot be empty")
 
         if "@" not in normalized_email:
