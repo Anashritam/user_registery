@@ -1,9 +1,18 @@
 import argparse
 import sys
+import logging
+from .config import get_default_settings
+from .logging_config import configure_logging
 from .repository import UserRepository
 from .services import UserService
 
 def main():
+
+    settings= get_default_settings()
+    configure_logging(settings)
+
+    logger = logging.getLogger(__name__)
+
     parser = argparse.ArgumentParser(description="User Registry CLI")
     subparsers = parser.add_subparsers(dest = "command", help = "Avilable commands")
 
@@ -14,7 +23,7 @@ def main():
 
     args = parser.parse_args()
 
-    repo = UserRepository()
+    repo = UserRepository(data_file=settings.data_file)
     service = UserService(repo)
 
     if args.command == "add":
@@ -32,7 +41,7 @@ def main():
             print("No users found.")
         else:
             for user in users:
-                print(f"{user.name}<{user.email}>")
+                print(f"{user.name} <{user.email}>")
 
     else: 
         parser.print_help()

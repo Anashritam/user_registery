@@ -1,11 +1,14 @@
 import pytest
+from pathlib import Path
 from user_registry.models import User
 from user_registry.repository import UserRepository
 from user_registry.services import UserService
 
 @pytest.fixture
-def service():
-    return UserService(UserRepository())
+def service(tmp_path: Path):
+    test_file = tmp_path/ "test_users.json"
+    repo = UserRepository(data_file=test_file)
+    return UserService(repo)
 
 def test_add_user_valid_and_normalized(service):
     user = service.add_user("Alice", "ALICE@EXAMPLE.COM")

@@ -1,22 +1,23 @@
 import logging
 import sys
+from .config import Settings
 
-def get_logger(name: str)-> logging.Logger:
-    logger = logging.getLogger(name)
+def configure_logging(settings: Settings)-> None:
 
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
 
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
 
-        formatter = logging.Formatter(
-            '%(asctime)s | %(levelname)-8s | %(name)s - %(message)s',
-            datefmt = '%Y-%m-%d %H:%M:%S'
-        )
+    if root_logger.handlers:
+        root_logger.handlers.clear()
 
-        handler.setFormatter(formatter)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setLevel(level)
 
-        logger.addHandler(handler)
-
-    return logger
+    formatter = logging.Formatter(
+        '%(asctime)s | %(levelname)-8s| %(name)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)

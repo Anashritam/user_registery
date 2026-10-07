@@ -1,12 +1,15 @@
 import json
+import logging
 from typing import List
+from pathlib import Path
 from .models import User
-from .config import get_data_file_path
+
+logger = logging.getLogger(__name__)
 
 class UserRepository:
     """JSON file based storage for User Objects."""
-    def __init__(self):
-        self._file_path=get_data_file_path()
+    def __init__(self, data_file: Path):
+        self._file_path=data_file
         self._users:List[User]= self._load_users()
 
     def _load_users(self)-> List[User]:
@@ -17,14 +20,18 @@ class UserRepository:
                 data = json.load(file)
 
                 return [User(name=user["name"], email=user["email"]) for user in data]
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning(f"Failed to load users from {self._file_path}: {e}. Starting with empty list.")
             return []
 
     def _save_users(self)-> None:
 
-        with open(self._file_path, "w") as file:
-            user_dicts= [{"name": user.name, "email":user.email} for user in self._users]
-            json.dump(user_dicts, file, indent = 2)
+        try: 
+            with open(self._file_path, "w") as file:
+                user_dicts = [{"name": user.name, "email":user.email} for user in self._users]
+                json.dump(user_dicts, file, indent = 2)
+        except IOError as e:
+            logger.error(f"Failed to save users to {self._file_path}: {e}.")
 
     def add(self, user: User)-> None:
         self._users.append(user)

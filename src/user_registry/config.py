@@ -1,8 +1,14 @@
+from dataclasses import dataclass
 from pathlib import Path
 
-APP_DIR = Path.home()/".user_registry"
-DATA_FILE = APP_DIR/"users.json"
+@dataclass(frozen=True)
+class Settings:
+    app_name: str = "User Registry"
+    log_level: str="INFO"
+    data_file: Path = Path.home()/".user_registry"/"users.json"
 
-def get_data_file_path()->Path:
-    APP_DIR.mkdir(exist_ok= True)
-    return DATA_FILE
+def get_default_settings() -> Settings:
+
+    settings = Settings()
+    settings.data_file.parent.mkdir(parents=True, exist_ok= True)
+    return settings

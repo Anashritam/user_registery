@@ -1,9 +1,9 @@
 from typing import List
 from .models import User
 from .repository import UserRepository
-from .logging_config import get_logger
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class UserService:
