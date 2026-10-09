@@ -3,6 +3,8 @@ import logging
 from typing import List
 from pathlib import Path
 from .models import User
+from .exceptions import DataCorruptionError, StorageError
+
 
 logger = logging.getLogger(__name__)
 
@@ -14,27 +16,26 @@ class UserRepository:
         self._users:List[User]= self._load_users()
 
     def _load_users(self) -> List[User]:
-        """Private method to read users from the JSON file."""
-        # 1. Missing file is fine (first run). Return empty list.
+        # 1. Missing file is expected on first run -> return empty list
         if not self._file_path.exists():
             return []
-        
+            
         try:
             with open(self._file_path, "r") as file:
                 data = json.load(file)
                 return [User(name=user["name"], email=user["email"]) for user in data]
                 
-        except json.JSONDecodeError as exc:
-            # 2. Malformed JSON is a corruption issue.
-            raise DataCorruptionError(f"Invalid JSON format in {self._file_path}") from exc
+        except (json.JSONDecodeError, KeyError) as e:
+            # 2. Malformed JSON or missing keys -> DO NOT return []. Raise explicitly.
+            raise DataCorruptionError(
+                f"Failed to load users from {self._file_path}: {e}"
+            ) from e
             
-        except KeyError as exc:
-            # 3. Missing fields in JSON is also corruption.
-            raise DataCorruptionError(f"Missing required field in {self._file_path}: {exc}") from exc
-            
-        except (PermissionError, OSError) as exc:
-            # 4. Filesystem access failures.
-            raise StorageError(f"Cannot read from {self._file_path}: {exc}") from exc
+        except (PermissionError, OSError) as e:
+            # 3. Filesystem access failure -> Raise StorageError
+            raise StorageError(
+                f"Failed to read from {self._file_path}: {e}"
+            ) from e
 
     def _save_users(self)-> None:
 
