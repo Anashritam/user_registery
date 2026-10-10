@@ -1,5 +1,6 @@
 import json
 import logging
+import tempfile
 from typing import List
 from pathlib import Path
 from .models import User
@@ -50,21 +51,34 @@ class UserRepository:
             raise StorageError(f"Failed to read from {self._file_path}: {e}") from e
 
     def _save_users(self, data: List[dict]) -> None:
-        # 1. Define a temporary file in the SAME directory
-        temp_path = self._file_path.with_suffix(".tmp")
+        dir_name = self._file_path.parent
+        temp_path = None  # Initialize to None so the except block can safely check it
         
         try:
-            # 2. Write JSON to the temporary file
-            with open(temp_path, "w") as file:
-                json.dump(data, file, indent=2)
-                
-            # 3. Atomically replace the original file with the temporary file
+            # 1. Create a UNIQUE temporary file in the SAME directory
+            # delete=False ensures the file isn't deleted when the 'with' block closes
+            with tempfile.NamedTemporaryFile(
+                mode="w", dir=dir_name, suffix=".tmp", delete=False, encoding="utf-8"
+            ) as temp_file:
+                temp_path = Path(temp_file.name)
+                json.dump(data, temp_file, indent=2)
+            
+            # 2. Atomically replace the original file with the temporary file
             temp_path.replace(self._file_path)
             
         except OSError as exc:
-            # Clean up the temp file if it was created but failed to replace
-            if temp_path.exists():
-                temp_path.unlink()
+            # 3. Safe cleanup: prevent cleanup errors from masking the original failure
+            try:
+                if temp_path is not None:
+                    temp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning(
+                    "Could not clean up temporary file %s",
+                    temp_path,
+                    exc_info=True,
+                )
+            
+            # 4. Raise the intended StorageError, preserving the original cause
             raise StorageError(
                 f"Failed to save users to {self._file_path}"
             ) from exc

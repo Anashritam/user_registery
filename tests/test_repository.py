@@ -1,5 +1,6 @@
 import pytest
 from pathlib import Path
+import tempfile
 from user_registry.models import User
 from user_registry.repository import UserRepository
 from user_registry.exceptions import DataCorruptionError, StorageError
@@ -32,30 +33,30 @@ def test_load_users_directory_path_raises_storage_error(tmp_path: Path):
     with pytest.raises(StorageError):
         UserRepository(tmp_path)
 
-def test_add_rollback_on_save_failure(tmp_path: Path, monkeypatch):
-    """Verify rollback and exception chaining using a deterministic mock."""
-    data_file = tmp_path / "users.json"
-    data_file.write_text("[]")
-    repo = UserRepository(data_file)
-    user = User(name="Alice", email="alice@example.com")
+# def test_add_rollback_on_save_failure(tmp_path: Path, monkeypatch):
+#     """Verify rollback and exception chaining using a deterministic mock."""
+#     data_file = tmp_path / "users.json"
+#     data_file.write_text("[]")
+#     repo = UserRepository(data_file)
+#     user = User(name="Alice", email="alice@example.com")
     
-    # Mock builtins.open to fail ONLY on write operations ('w')
-    original_open = open
-    def fail_open(*args, **kwargs):
-        if len(args) > 1 and 'w' in args[1]:
-            raise PermissionError("Simulated write failure")
-        return original_open(*args, **kwargs)
+#     # Mock builtins.open to fail ONLY on write operations ('w')
+#     original_open = open
+#     def fail_open(*args, **kwargs):
+#         if len(args) > 1 and 'w' in args[1]:
+#             raise PermissionError("Simulated write failure")
+#         return original_open(*args, **kwargs)
     
-    monkeypatch.setattr("builtins.open", fail_open)
+#     monkeypatch.setattr("builtins.open", fail_open)
     
-    with pytest.raises(StorageError) as exc_info:
-        repo.add(user)
+#     with pytest.raises(StorageError) as exc_info:
+#         repo.add(user)
         
-    # Verify the original OS error is preserved
-    assert isinstance(exc_info.value.__cause__, PermissionError)
+#     # Verify the original OS error is preserved
+#     assert isinstance(exc_info.value.__cause__, PermissionError)
     
-    # Verify the in-memory state was rolled back
-    assert repo.list_all() == []
+#     # Verify the in-memory state was rolled back
+#     assert repo.list_all() == []
 
 def test_load_users_missing_key_raises_corruption(tmp_path: Path):
     """A record missing the 'email' key must raise DataCorruptionError."""
@@ -78,6 +79,38 @@ def test_load_users_invalid_name_type_raises_corruption(tmp_path: Path):
     with pytest.raises(DataCorruptionError, match="invalid types"):
         UserRepository(data_file)
 
+def test_add_rollback_on_save_failure(tmp_path: Path, monkeypatch):
+    """Verify rollback and exception chaining using a deterministic mock."""
+    data_file = tmp_path / "users.json"
+    data_file.write_text("[]")
+    repo = UserRepository(data_file)
+    user = User(name="Alice", email="alice@example.com")
+    
+    # Mock tempfile.NamedTemporaryFile to fail during write
+    original_tempfile = tempfile.NamedTemporaryFile
+    
+    def fail_tempfile(*args, **kwargs):
+        # Create the temp file object first
+        temp_file = original_tempfile(*args, **kwargs)
+        # Then mock its write method to fail
+        original_write = temp_file.write
+        def failing_write(data):
+            raise PermissionError("Simulated disk full")
+        temp_file.write = failing_write
+        return temp_file
+    
+    monkeypatch.setattr("tempfile.NamedTemporaryFile", fail_tempfile)
+    
+    with pytest.raises(StorageError) as exc_info:
+        repo.add(user)
+        
+    # Verify the original OS error is preserved
+    assert isinstance(exc_info.value.__cause__, PermissionError)
+    
+    # Verify the in-memory state was rolled back
+    assert repo.list_all() == []
+
+
 def test_atomic_write_preserves_original_on_failure(tmp_path: Path, monkeypatch):
     """Verify that a failed write leaves the original JSON file completely intact."""
     
@@ -89,15 +122,18 @@ def test_atomic_write_preserves_original_on_failure(tmp_path: Path, monkeypatch)
     repo = UserRepository(data_file)
     bob = User(name="Bob", email="bob@example.com")
     
-    # 2. Mock builtins.open to fail ONLY when writing to the .tmp file
-    original_open = open
-    def fail_tmp_open(*args, **kwargs):
-        # Check if it's a write operation targeting the temporary file
-        if len(args) > 1 and 'w' in args[1] and str(args[0]).endswith('.tmp'):
+    # 2. Mock tempfile.NamedTemporaryFile to fail during write
+    original_tempfile = tempfile.NamedTemporaryFile
+    
+    def fail_tempfile(*args, **kwargs):
+        temp_file = original_tempfile(*args, **kwargs)
+        original_write = temp_file.write
+        def failing_write(data):
             raise PermissionError("Simulated disk full on temp file")
-        return original_open(*args, **kwargs)
+        temp_file.write = failing_write
+        return temp_file
         
-    monkeypatch.setattr("builtins.open", fail_tmp_open)
+    monkeypatch.setattr("tempfile.NamedTemporaryFile", fail_tempfile)
     
     # 3. Action: Try to add Bob (this should fail during the .tmp write)
     with pytest.raises(StorageError) as exc_info:
