@@ -37,18 +37,30 @@ class UserRepository:
                 f"Failed to read from {self._file_path}: {e}"
             ) from e
 
-    def _save_users(self)-> None:
-
-        try: 
+    def _save_users(self) -> None:
+        try:
             with open(self._file_path, "w") as file:
-                user_dicts = [{"name": user.name, "email":user.email} for user in self._users]
-                json.dump(user_dicts, file, indent = 2)
-        except IOError as e:
-            logger.error(f"Failed to save users to {self._file_path}: {e}.")
+                user_dicts = [
+                    {"name": user.name, "email": user.email}
+                    for user in self._users
+                ]
+                json.dump(user_dicts, file, indent=2)
+        except OSError as exc:
+            raise StorageError(
+                f"Failed to save users to {self._file_path}"
+            ) from exc
 
-    def add(self, user: User)-> None:
-        self._users.append(user)
-        self._save_users()
+    def add(self, user: User) -> None:
+        # Save the exact state before mutation
+        previous_length = len(self._users)
+        
+        try:
+            self._users.append(user)
+            self._save_users()
+        except StorageError:
+            # Rollback: truncate the list back to its exact previous length
+            del self._users[previous_length:]
+            raise
 
     def list_all(self)-> List[User]:
 
