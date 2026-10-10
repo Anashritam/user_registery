@@ -56,3 +56,24 @@ def test_add_rollback_on_save_failure(tmp_path: Path, monkeypatch):
     
     # Verify the in-memory state was rolled back
     assert repo.list_all() == []
+
+def test_load_users_missing_key_raises_corruption(tmp_path: Path):
+    """A record missing the 'email' key must raise DataCorruptionError."""
+    data_file = tmp_path / "missing_key.json"
+    data_file.write_text('[{"name": "Alice"}]')
+    with pytest.raises(DataCorruptionError, match="missing 'name' or 'email' keys"):
+        UserRepository(data_file)
+
+def test_load_users_null_record_raises_corruption(tmp_path: Path):
+    """A null (None) record in the list must raise DataCorruptionError."""
+    data_file = tmp_path / "null_record.json"
+    data_file.write_text('[null]')
+    with pytest.raises(DataCorruptionError, match="is not a dictionary"):
+        UserRepository(data_file)
+
+def test_load_users_invalid_name_type_raises_corruption(tmp_path: Path):
+    """A record with a non-string 'name' must raise DataCorruptionError."""
+    data_file = tmp_path / "invalid_type.json"
+    data_file.write_text('[{"name": 123, "email": "a@example.com"}]')
+    with pytest.raises(DataCorruptionError, match="invalid types"):
+        UserRepository(data_file)
