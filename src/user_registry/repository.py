@@ -49,23 +49,38 @@ class UserRepository:
         except (PermissionError, OSError) as e:
             raise StorageError(f"Failed to read from {self._file_path}: {e}") from e
 
-    def _save_users(self) -> None:
+    def _save_users(self, data: List[dict]) -> None:
+        # 1. Define a temporary file in the SAME directory
+        temp_path = self._file_path.with_suffix(".tmp")
+        
         try:
-            with open(self._file_path, "w") as file:
-                user_dicts = [{"name": user.name, "email": user.email} for user in self._users]
-                json.dump(user_dicts, file, indent=2)
+            # 2. Write JSON to the temporary file
+            with open(temp_path, "w") as file:
+                json.dump(data, file, indent=2)
+                
+            # 3. Atomically replace the original file with the temporary file
+            temp_path.replace(self._file_path)
+            
         except OSError as exc:
-            raise StorageError(f"Failed to save users to {self._file_path}") from exc
+            # Clean up the temp file if it was created but failed to replace
+            if temp_path.exists():
+                temp_path.unlink()
+            raise StorageError(
+                f"Failed to save users to {self._file_path}"
+            ) from exc
 
     def add(self, user: User) -> None:
-        previous_length = len(self._users)
-        try:
-            self._users.append(user)
-            self._save_users()
-        except StorageError:
-            # Rollback: truncate the list back to its exact previous length
-            del self._users[previous_length:]
-            raise
+        # 1. Build the new user data in memory (DO NOT mutate self._users yet)
+        user_dicts = [
+            {"name": u.name, "email": u.email} for u in self._users
+        ]
+        user_dicts.append({"name": user.name, "email": user.email})
+
+        # 2 & 3. Persist the data atomically (writes to temp, then replaces)
+        self._save_users(user_dicts)
+
+        # 4. Commit the in-memory change ONLY after persistence succeeds
+        self._users.append(user)
 
     def list_all(self) -> List[User]:
         return list(self._users)

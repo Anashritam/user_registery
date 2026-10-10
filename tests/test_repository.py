@@ -77,3 +77,37 @@ def test_load_users_invalid_name_type_raises_corruption(tmp_path: Path):
     data_file.write_text('[{"name": 123, "email": "a@example.com"}]')
     with pytest.raises(DataCorruptionError, match="invalid types"):
         UserRepository(data_file)
+
+def test_atomic_write_preserves_original_on_failure(tmp_path: Path, monkeypatch):
+    """Verify that a failed write leaves the original JSON file completely intact."""
+    
+    # 1. Setup: Alice is already saved on disk
+    data_file = tmp_path / "users.json"
+    original_content = '[{"name": "Alice", "email": "alice@example.com"}]'
+    data_file.write_text(original_content)
+    
+    repo = UserRepository(data_file)
+    bob = User(name="Bob", email="bob@example.com")
+    
+    # 2. Mock builtins.open to fail ONLY when writing to the .tmp file
+    original_open = open
+    def fail_tmp_open(*args, **kwargs):
+        # Check if it's a write operation targeting the temporary file
+        if len(args) > 1 and 'w' in args[1] and str(args[0]).endswith('.tmp'):
+            raise PermissionError("Simulated disk full on temp file")
+        return original_open(*args, **kwargs)
+        
+    monkeypatch.setattr("builtins.open", fail_tmp_open)
+    
+    # 3. Action: Try to add Bob (this should fail during the .tmp write)
+    with pytest.raises(StorageError) as exc_info:
+        repo.add(bob)
+        
+    assert isinstance(exc_info.value.__cause__, PermissionError)
+    
+    # 4. Assert In-memory state is unchanged (Bob was never added)
+    assert len(repo.list_all()) == 1
+    assert repo.list_all()[0].name == "Alice"
+    
+    # 5. Assert Disk state is unchanged (The original file was never truncated!)
+    assert data_file.read_text() == original_content
