@@ -13,7 +13,12 @@ class UserRepository:
     
     def __init__(self, data_file: Path):
         self._file_path = data_file
-        self._file_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            # Translate raw OSError during directory creation to StorageError
+            self._file_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise StorageError(f"Failed to create directory for {self._file_path}") from exc
+            
         self._users: List[User] = self._load_users()
 
     def _load_users(self) -> List[User]:
